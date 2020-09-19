@@ -1,0 +1,92 @@
+###### Execucio de les implementacions de SVM
+
+#Dades generades artificialment amb el generador
+reset;
+option solver cplex;
+model SVMprimal.mod;
+data gen_tr.dat;
+solve;
+print "Dades generades artificialment. Percentatge d'encert SVM primal:", 
+round(100-(count{i in 1..m}(s[i]>0.00001))/m*100, 4), "%";
+print {i in 1..n}round(w[i],4), round(gamma,4) > w.dat;
+print;
+
+reset;
+model SVMdual.mod;
+data gen_tr.dat;
+solve;
+print "Dades generades artificialment. Percentatge d'encert SVM dual:",
+round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100, 4), "%";
+print {i in 1..n} round((sum{j in 1..m}lambda[j]*A[j,n+1]*A[j,i]),4), 
+round(1/A[40,n+1]-sum{i in 1..m}lambda[i]*A[i,n+1]*sum{j in 1..n}A[i,j]*A[40,j], 4) >> w.dat;
+print;
+
+reset;
+model SVMdualG.mod;
+data gen_tr.dat;
+solve;
+print "Dades generades artificialment. Percentatge d'encert SVM dual amb kernel Gaussia:",
+round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100, 4), "%";
+print {i in 1..m}lambda[i] > lambda.dat;
+print;
+
+
+#Dades de llavors (internet)
+reset;
+model SVMprimal.mod;
+data llavors_tr.dat;
+solve;
+print "Dades llavors. Percentatge d'encert SVM primal:",
+ round(100-(count{i in 1..m}(s[i]>0.00001))/m*100, 4), "%";
+print {i in 1..n}round(w[i],4), round(gamma,4) >> w.dat;
+print;
+ 
+reset;
+model SVMdual.mod;
+data llavors_tr.dat;
+solve;
+print "Dades llavors. Percentatge d'encert SVM dual:",
+round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100, 4), "%";
+print {i in 1..n} round((sum{j in 1..m}lambda[j]*A[j,n+1]*A[j,i]),4),
+round(1/A[43,n+1]-sum{i in 1..m}lambda[i]*A[i,n+1]*sum{j in 1..n}A[i,j]*A[43,j], 4) >> w.dat;
+print;
+
+reset;
+model SVMdualG.mod;
+data llavors_tr.dat;
+solve;
+print "Dades llavors. Percentatge d'encert SVM dual amb kernel Gaussia:",
+round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100, 4), "%";
+print {i in 1..m}lambda[i] >> lambda.dat;
+print;
+
+
+#Dades del swiss roll
+reset;
+model SVMprimal.mod;
+data swiss_roll_tr.dat;
+solve;
+print "Dades Swiss-Roll. Percentatge d'encert SVM primal:",
+ round(100-(count{i in 1..m}(s[i]>0.00001))/m*100,4), "%";
+print {i in 1..n}round(w[i],4), round(gamma,4) >> w.dat;
+print;
+
+reset;
+model SVMdual.mod;
+data swiss_roll_tr.dat;
+solve;
+print "Dades Swiss-Roll. Percentatge d'encert SVM dual:",
+ round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100,4), "%";
+print {i in 1..n} round((sum{j in 1..m}lambda[j]*A[j,n+1]*A[j,i]),4),
+round(1/A[325,n+1]-sum{i in 1..m}lambda[i]*A[i,n+1]*sum{j in 1..n}A[i,j]*A[325,j], 4) >> w.dat;
+print;
+
+reset;
+model SVMdualG.mod;
+data swiss_roll_tr.dat;
+solve;
+print "Dades Swiss-Roll. Percentatge d'encert SVM dual amb kernel Gaussia:",
+ round((count{i in 1..m}(lambda[i]<nu-0.000001))/m*100,4), "%";
+ print {i in 1..m}lambda[i] >> lambda.dat;
+ print;
+ 

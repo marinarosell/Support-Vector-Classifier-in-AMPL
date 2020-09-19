@@ -1,0 +1,285 @@
+---
+title: "R Notebook"
+author: "Marina Rosell i Pau Lozano"
+output: html_notebook
+---
+
+## Data
+
+####Modificació dels arxius de dades
+
+```{r}
+library(multiplex)
+gen <- read.table("gen.dat")
+
+for(i in 1:dim(gen)[1]){
+  if(gen[i,]$V5=="-1.0*"){gen[i,]$V5=-1.0}
+  if(gen[i,]$V5=="1.0*"){gen[i,]$V5=1.0}
+}
+  
+gen$V5 <- as.double(gen$V5)
+
+gen_tr <- gen[1:round(dim(gen)[1]*2/3),]
+gen_val <- gen[round(dim(gen)[1]*2/3+1):dim(gen)[1],]
+
+gen_tr <- data.frame(1:dim(gen_tr)[1], gen_tr)
+
+cat("Variància:",sigma_gen <- mean(c(var(gen[,1]),var(gen[,2]),var(gen[,3]),var(gen[,4]))))
+
+
+#descomentar per sobreescriure l'arxiu de dades, s'hauran de reescriure a mà els paràmetres
+#write.dat(gen_tr, ".")
+```
+
+
+```{r}
+llavors = read.table("seedsdataset.dat", header=TRUE, sep="")
+llavors = llavors[!llavors$X1==3,]
+llavors$X1[llavors$X1==2] <- -1
+
+set.seed(1234)
+rows <- sample(nrow(llavors))
+llavors <- llavors[rows,]
+
+llavors_tr <- llavors[1:round(dim(llavors)[1]*2/3),]
+llavors_val <- llavors[round(dim(llavors)[1]*2/3+1):dim(llavors)[1],]
+
+llavors_tr <- data.frame(1:dim(llavors_tr)[1], llavors_tr)
+
+cat("Variància:",sigma_llavors <- mean(c(var(llavors[,1]),var(llavors[,2]),var(llavors[,3]),var(llavors[,4]),var(llavors[,5]),var(llavors[,6]),var(llavors[,7]))))
+
+#descomentar per sobreescriure l'arxiu de dades, s'hauran de reescriure a mà els paràmetres
+#write.dat(llavors_tr, ".")
+```
+
+
+```{r}
+swiss_roll = read.table("swiss_roll.dat", sep="")
+
+swiss_roll_tr <- swiss_roll[1:round(dim(swiss_roll)[1]*2/3),]
+swiss_roll_val <- swiss_roll[round(dim(swiss_roll)[1]*2/3+1):dim(swiss_roll)[1],]
+
+swiss_roll_tr <- data.frame(1:dim(swiss_roll_tr)[1], swiss_roll_tr)
+
+cat("Variància:",sigma_swiss_roll <- mean(c(var(swiss_roll[,1]),var(swiss_roll[,2]),var(swiss_roll[,3]))))
+
+#descomentar per sobreescriure l'arxiu de dades, s'hauran de reescriure a mà els paràmetres
+#write.dat(swiss_roll_tr, ".")
+```
+
+Un cop creats els arxius de dades .dat, s'hauran d'adaptar a mà per poder executar amb AMPL: cal afegir els paràmetres:
+- m: número de observacions
+- n: dimensió (número de columnes)
+- nu: paràmetre de regularització de SVM
+- sigma: variància
+i declarar el paràmetre A, que serà la matriu de dades(X) i target(y) que estem generant i guardant amb aquest arxiu R.
+
+
+## Validation
+
+Un cop executat els models SVM amb les dades a AMPL, fem una validació amb dades diferents de les de training, també comprovarem que la solució del primal i del dual amb kernel lineal és la mateixa.
+
+```{r}
+(w_gamma <- read.table("w.dat", sep=" ", fill=TRUE))
+
+w_gen <-w_gamma[1:2,1:5]
+rownames(w_gen) <- c("primal", "dual")
+colnames(w_gen) <- c("w1","w2","w3","w4","gamma")
+w_gen
+w_llavors <-w_gamma[3:4,1:8]
+rownames(w_llavors) <- c("primal", "dual")
+colnames(w_llavors) <- c("w1","w2","w3","w4","w5","w6","w7","gamma")
+w_llavors
+w_swiss_roll <-w_gamma[5:6,1:4]
+rownames(w_swiss_roll) <- c("primal", "dual")
+colnames(w_swiss_roll) <- c("w1","w2","w3","gamma")
+w_swiss_roll
+```
+
+Comprovem que els hiperplans de separació del model SVM dual i primal coincideixen, amb petites diferències a les mil·lèssimes de decimal que considerem negligibles.
+Les gammes també coincideixen.
+
+
+##Accuracy
+
+#### Kernel Lineal
+
+Dades generades amb el generador:
+```{r}
+w_gen_m <- as.matrix(w_gen[1,-5])
+
+##Training
+gen_tr_m <- as.matrix(gen_tr[,2:5])
+gen_tr_y <- as.matrix(gen_tr[,6])
+gen_gamma_m <- rep(w_gen[1,5],667)
+res <- gen_tr_m%*%t(w_gen_m) + gen_gamma_m
+cat("Encert amb training:",100-sum(abs(res)<0.9999|sign(res)!=sign(gen_tr_y))/667*100, "%")
+
+#Testing
+gen_val_m <- as.matrix(gen_val[,1:4])
+gen_val_y <- as.matrix(gen_val[,5])
+gen_gamma_m <- rep(w_gen[1,5],333)
+res <- gen_val_m%*%t(w_gen_m) + gen_gamma_m
+cat("\nEncert amb testing:",100-sum(abs(res)<0.9999|sign(res)!=sign(gen_val_y))/333*100, "%")
+```
+
+
+Dades de les llavors:
+```{r}
+w_llavors_m <- as.matrix(w_llavors[1,-8])
+
+#Training
+llavors_tr_m <- as.matrix(llavors_tr[,2:8])
+llavors_tr_y <- as.matrix(llavors_tr[,9])
+llavors_gamma_m <- rep(w_llavors[1,8],93)
+res <- llavors_tr_m%*%t(w_llavors_m) + llavors_gamma_m
+cat("Encert amb training", 100-sum(abs(res)<0.9999|sign(res)!=sign(llavors_tr_y))/93*100, "%")
+
+#Testing
+llavors_val_m <- as.matrix(llavors_val[,1:7])
+llavors_val_y <- as.matrix(llavors_val[,8])
+llavors_gamma_m <- rep(w_llavors[1,8],46)
+res <- llavors_val_m%*%t(w_llavors_m) + llavors_gamma_m
+cat("\nEncert amb testing",100-sum(abs(res)<0.9999|sign(res)!=sign(llavors_val_y))/46*100,"%")
+```
+
+
+Dades del Swiss-Roll:
+```{r}
+w_swiss_roll_m <- as.matrix(w_swiss_roll[1,-4])
+
+#Training
+swiss_roll_tr_m <- as.matrix(swiss_roll_tr[,2:4])
+swiss_roll_tr_y <- as.matrix(swiss_roll_tr[,5])
+swiss_roll_gamma_m <- rep(w_swiss_roll[1,4],667)
+res <- swiss_roll_tr_m%*%t(w_swiss_roll_m) + swiss_roll_gamma_m
+cat("Encert amb training",100-sum(abs(res)<0.9999|sign(res)!=sign(swiss_roll_tr_y))/667*100, "%")
+
+#Testing
+swiss_roll_val_m <- as.matrix(swiss_roll_val[,1:3])
+swiss_roll_val_y <- as.matrix(swiss_roll_val[,4])
+swiss_roll_gamma_m <- rep(w_swiss_roll[1,4],333)
+res <- swiss_roll_val_m%*%t(w_swiss_roll_m) + swiss_roll_gamma_m
+cat("\nEncert amb testing",100-sum(abs(res)<0.9999|sign(res)!=sign(swiss_roll_val_y))/333*100,"%")
+```
+
+
+#### Kernel Gaussià
+
+```{r}
+kernel <- function(x, y, sigma){
+  exp(-(norm(x-y,"F")^2)/(2*sigma))
+}
+```
+
+```{r}
+lambda <- as.matrix(read.table("lambda.dat", sep=" ", fill=TRUE))
+lambda_gen <- lambda[1,]
+lambda_llavors <- lambda[2,1:93]
+lambda_swiss_roll <- lambda[3,]
+```
+
+Dades generades amb el generador:
+```{r}
+phi_w_gen <- {}
+for (i in 1:667){
+  a <- {}
+  for (j in 1:667){
+    a[j] <- lambda_gen[j]*gen_tr_y[j]*kernel(as.matrix(gen_tr_m[i,]),as.matrix(gen_tr_m[j,]),0.1)
+  }
+  phi_w_gen[i] <- sum(a)
+}
+
+b <- {}
+for (j in 1:667){
+  b[j] <- lambda_gen[j]*gen_tr_y[j]*kernel(as.matrix(gen_tr_m[515,]),as.matrix(gen_tr_m[j,]),0.1)
+}
+gamma_gen <- gen_tr_y[515]-sum(b)
+
+res <- phi_w_gen + gamma_gen
+cat("Encert amb training",100-sum(abs(res)<0.9999|sign(res)!=sign(gen_tr_y))/667*100,"%")
+```
+
+```{r}
+phi_w_gen_val <- {}
+for (i in 1:333){
+  a <- {}
+  for (j in 1:667){
+    a[j] <- lambda_gen[j]*gen_tr_y[j]*kernel(as.matrix(gen_val_m[i,]),as.matrix(gen_tr_m[j,]),0.1)
+  }
+  phi_w_gen_val[i] <- sum(a)
+}
+
+res <- phi_w_gen_val + gamma_gen
+cat("Encert amb testing",100-sum(abs(res)<0.9999|sign(res)!=sign(gen_val_y))/333*100,"%")
+```
+
+Dades de les llavors:
+```{r}
+phi_w_llavors <- {}
+for (i in 1:93){
+  a <- {}
+  for (j in 1:93){
+    a[j] <- lambda_llavors[j]*llavors_tr_y[j]*kernel(as.matrix(llavors_tr_m[i,]),as.matrix(llavors_tr_m[j,]),1.3)
+  }
+  phi_w_llavors[i] <- sum(a)
+}
+
+b <- {}
+for (j in 1:93){
+  b[j] <- lambda_llavors[j]*llavors_tr_y[j]*kernel(as.matrix(llavors_tr_m[9,]),as.matrix(llavors_tr_m[j,]),1.3)
+}
+gamma_llavors <- llavors_tr_y[9]-sum(b)
+
+res <- phi_w_llavors + gamma_llavors
+cat("Encert amb training",100-sum(abs(res)<0.9999|sign(res)!=sign(llavors_tr_y))/93*100,"%")
+```
+
+```{r}
+phi_w_llavors_val <- {}
+for (i in 1:46){
+  a <- {}
+  for (j in 1:93){
+    a[j] <- lambda_llavors[j]*llavors_tr_y[j]*kernel(as.matrix(llavors_val_m[i,]),as.matrix(llavors_tr_m[j,]),1.3)
+  }
+  phi_w_llavors_val[i] <- sum(a)
+}
+
+res <- phi_w_llavors_val + gamma_llavors
+cat("Encert amb testing",100-sum(abs(res)<0.9999|sign(res)!=sign(llavors_val_y))/46*100,"%")
+```
+
+Dades del Swiss-Roll:
+```{r}
+phi_w_swiss_roll <- {}
+for (i in 1:667){
+  a <- {}
+  for (j in 1:667){
+    a[j] <- lambda_swiss_roll[j]*swiss_roll_tr_y[j]*kernel(as.matrix(swiss_roll_tr_m[i,]),as.matrix(swiss_roll_tr_m[j,]),43.5)
+  }
+  phi_w_swiss_roll[i] <- sum(a)
+}
+
+b <- {}
+for (j in 1:667){
+  b[j] <- lambda_swiss_roll[j]*swiss_roll_tr_y[j]*kernel(as.matrix(swiss_roll_tr_m[18,]),as.matrix(swiss_roll_tr_m[j,]),43.5)
+}
+gamma_swiss_roll <- swiss_roll_tr_y[18]-sum(b)
+
+res <- phi_w_swiss_roll + gamma_swiss_roll
+cat("Encert amb training",100-sum(abs(res)<0.9999|sign(res)!=sign(swiss_roll_tr_y))/667*100,"%")
+```
+
+```{r}
+phi_w_swiss_roll_val <- {}
+for (i in 1:333){
+  a <- {}
+  for (j in 1:667){
+    a[j] <- lambda_swiss_roll[j]*swiss_roll_tr_y[j]*kernel(as.matrix(swiss_roll_val_m[i,]),as.matrix(swiss_roll_tr_m[j,]),43.5)
+  }
+  phi_w_swiss_roll_val[i] <- sum(a)
+}
+
+res <- phi_w_swiss_roll_val + gamma_swiss_roll
+cat("Encert amb testing",100-sum(abs(res)<0.9999|sign(res)!=sign(swiss_roll_val_y))/333*100,"%")
+```
